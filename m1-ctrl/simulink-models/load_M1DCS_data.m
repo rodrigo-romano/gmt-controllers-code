@@ -8,7 +8,7 @@
 % Apr, 2022: Split decoupling matrices
 
 % Flag to compile M1 control model codes at the end of data loading process
-auto_compile = false;
+auto_compile = false; %true;%
 % Flag to save/update test data file
 update_test_dt = false;%true; %
 % Flag to save/update controller data file
@@ -16,6 +16,11 @@ update_calib_dt = false;%true; %
 
 %%
 load('controls_5pt1g1K_z30_llTT_oad.mat','m1sys','fem');
+
+if(true)
+    warning('Overwriting M1 controller model parameters for model!') %#ok<*UNRCH>
+    m1sys = ovr_ofl_crtl(m1sys);
+end
 
 % m1sys variable content (seg = {1,...,7}):
 %
@@ -134,7 +139,7 @@ switch build_subsys
         end
 
         if auto_compile
-            slbuild(m1SA_C_OA_label); %#ok<*UNRCH> 
+%             slbuild(m1SA_C_OA_label);
             slbuild(m1SA_C_CS_label);
         else
             warning('The codes for models %s and %s were not built!',...
@@ -168,6 +173,58 @@ switch build_subsys
         end
 end
 
+%% Function redesigning M1 OFL controller
+%% **************************************************************
+function m1sys = ovr_ofl_crtl(m1sys)
+
+% S-notch filter prototype. Tuning parameters: zn, zd, fd, fw
+snotch = @(zn,zd,fd,fn) tf((fd/fn)^2*[1 2*zn*(2*pi*fn) (2*pi*fn)^2],...
+    [1 2*zd*(2*pi*fd) (2*pi*fd)^2]); %#ok<*NASGU> 
+notchF = @(fc,F,delta) tf([1, 4*pi*fc/(F*delta), 4*(pi*fc)^2],...
+    [1, 4*pi*fc/F, 4*(pi*fc)^2]);
+sndUDampF = @(fc,damp) zpk([],[-fc*2*pi*(damp + 1i*sqrt(1-damp^2)),...
+    conj(-fc*2*pi*(damp + 1i*sqrt(1-damp^2)))],(fc*2*pi)^2);
+
+
+% M1 outer force loop (OFL) controller matrix
+ofl.Ts = 1/100;  % OFL sampling time
+% I-controller
+kc = 8;% * 69.5/144;    % HP Stiffness change: 144N/um -> 69.5N/um
+fbH = kc * tf(1,[1 0]);
+
+% Notch and low-pass filters of each channel
+% Channels := {1}:Fx; {2}:Fy; {3}:Fz; {4}:Mx; {5}:My; {6}:Mz
+% Outer axis (OA) segment
+ofl_filterOA{1} = 0.9 * notchF(9.7,1,20);
+ofl_filterOA{2} = ofl_filterOA{1};
+ofl_filterOA{3} = 1.2*notchF(16.1,1,20);
+ofl_filterOA{4} = notchF(16.1,1,6);
+ofl_filterOA{5} = ofl_filterOA{4};
+ofl_filterOA{6} = notchF(14.8,1,20);
+% Center segment (CS)
+ofl_filterCS{1} = 0.9 * notchF(10.2,1,20);
+ofl_filterCS{2} = ofl_filterCS{1};
+ofl_filterCS{3} = 1.2*notchF(16.8,1,20);
+ofl_filterCS{4} = notchF(16.8,1,6);
+ofl_filterCS{5} = ofl_filterCS{4};
+ofl_filterCS{6} = notchF(16.8,1,20);
+
+
+for seg = 1:7    
+    % OFL controller
+    if(seg ~= 7), ofl_filter = ofl_filterOA;
+    else, ofl_filter = ofl_filterCS;
+    end
+    % Controller channel loop
+    oflC_ss = cell(6,1);
+
+    for ich = 1:numel(oflC_ss)
+        oflC_ss{seg} = balreal(ss(ofl_filter{ich}))*ss(fbH);
+        m1sys{seg}.ofl.SSdtC{ich} = c2d(oflC_ss{seg},ofl.Ts,'foh');
+    end
+end
+
+end
 
 
 %% Older version
