@@ -15,7 +15,8 @@ update_test_dt = false;%true; %
 update_calib_dt = false;%true; %
 
 %%
-load('controls_5pt1g1K_z30_llTT_oad.mat','m1sys','fem');
+% load('controls_5pt1g1K_z30_llTT_oad.mat','m1sys','fem');
+load('/Users/rromano/Workspace/gmt-ims/controls_5pt1g1K_z30_llTTsoftHP_oad.mat','m1sys','fem')
 
 if(true)
     warning('Overwriting M1 controller model parameters for model!') %#ok<*UNRCH>
@@ -189,7 +190,7 @@ sndUDampF = @(fc,damp) zpk([],[-fc*2*pi*(damp + 1i*sqrt(1-damp^2)),...
 % M1 outer force loop (OFL) controller matrix
 ofl.Ts = 1/100;  % OFL sampling time
 % I-controller
-kc = 8;% * 69.5/144;    % HP Stiffness change: 144N/um -> 69.5N/um
+kc = 8 * 0.5;% * 69.5/144;    % HP Stiffness change: 144N/um -> 69.5N/um
 fbH = kc * tf(1,[1 0]);
 
 % Notch and low-pass filters of each channel
