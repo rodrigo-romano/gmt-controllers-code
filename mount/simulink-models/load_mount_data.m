@@ -8,7 +8,7 @@
 % Feb, 2024: Including models of the PDR2021 version
 %
 
-deltaT = 1/8e3;     % [s] Main sampling period
+deltaT = 1/1e3;     % [s] Main sampling period
 FEM_Ts = deltaT;
 
 %
@@ -76,6 +76,11 @@ if (str2double(oTest.sVer)+0.01*str2double(oTest.sSubVer) < 20.11)
         ceil(1/deltaT/1e3), oTest.sZa));
     fprintf('Loading mount controller and driver model parameters from\n%s\n',ctrl_filename);
     load(ctrl_filename,'mount');
+    set_param('mount_2_rust/Mount_Drv_PDR2021','Commented','off');
+    set_param('mount_2_rust/Mount_Drv_PDR2021_Frless','Commented','off');
+    set_param('mount_2_rust/Mount_Drv_PDR2021L','Commented','off');
+    set_param('mount_2_rust/Mount_Drv_FDR2023','Commented','on');
+
     if(auto_compile), auto_compile = false; end %#ok<*UNRCH> 
 else
     % ODC Simulink model used (located in ../base)
@@ -88,6 +93,11 @@ else
     % returns structure [o] with all configuration parameters
     oTest.sModelDirIn = 'v20.11/n100HzR800';
     o = fun_confBase(oTest);
+
+    set_param('mount_2_rust/Mount_Drv_PDR2021','Commented','on');
+    set_param('mount_2_rust/Mount_Drv_PDR2021_Frless','Commented','on');
+    set_param('mount_2_rust/Mount_Drv_PDR2021L','Commented','on');
+    set_param('mount_2_rust/Mount_Drv_FDR2023','Commented','off');
 end
 
 % Remove folders from Matlab path
@@ -103,12 +113,27 @@ c2d_opt = c2dOptions('method','tustin');
 mnt_TF_Ts = FEM_Ts;
 
 % AZ
-aznotchF17 = notchF(16.9, 3.5, 1.8);
-mount.az.SSdtHfb = balreal(c2d(ss(aznotchF17*o.az.c.Hp), mnt_TF_Ts, c2d_opt));    % FB
+% aznotchF17 = notchF(16.9, 3.5, 1.8);
+% mount.az.SSdtHfb = balreal(c2d(ss(aznotchF17*o.az.c.Hp), mnt_TF_Ts, c2d_opt));    % FB
+mount.az.SSdtHfb = balreal(c2d(ss(o.az.c.Hp), mnt_TF_Ts, c2d_opt));    % FB
 mount.az.SSdtHff = balreal(c2d(ss(o.az.c.Hff), mnt_TF_Ts, c2d_opt));   % FF
 % EL
-mount.el.SSdtHfb = balreal(c2d(ss(o.el.c.Hp), mnt_TF_Ts, c2d_opt));    % FB
-mount.el.SSdtHff = balreal(c2d(ss(o.el.c.Hff), mnt_TF_Ts, c2d_opt));   % FF
+th = 9.0882e+07;
+mount.el.Kp = th*94.5; mount.el.Ki = th*350; mount.el.Kd = th*12.95;
+Hder_d = c2d(tf([mount.el.Kd, 0],[1e-3 1]), mnt_TF_Ts, c2d_opt);
+mount.el.SSdtHs = balreal(c2d(ss(o.el.c.Hs), mnt_TF_Ts, c2d_opt));
+mount.el.SSdtHff = balreal(c2d(ss(o.el.c.Hff), mnt_TF_Ts, c2d_opt));
+if(false)   % Verification plot for the ungrouped realization Hpid
+    Hint_d = mount.el.Ki*tf(mnt_TF_Ts/2*[1 1],[1 -1],mnt_TF_Ts);
+    Hpid = Hint_d + Hder_d + mount.el.Kp;
+    figure
+    bode(o.el.c.Hc, c2d(o.el.c.Hc,mnt_TF_Ts,'tustin'), Hpid);
+    grid on;
+    legend('ODC continuous','ODC Tustin','PID with ungrouped terms');
+end
+% GIR FB & FF
+mount.gir.SSdtHfb = balreal(c2d(ss(o.gir.c.Hp), mnt_TF_Ts, c2d_opt));
+mount.gir.SSdtHff = balreal(c2d(ss(o.gir.c.Hff), mnt_TF_Ts, c2d_opt));
 % GIR
 mount.gir.SSdtHfb = balreal(c2d(ss(o.gir.c.Hp), mnt_TF_Ts, c2d_opt));    % FB
 mount.gir.SSdtHff = balreal(c2d(ss(o.gir.c.Hff), mnt_TF_Ts, c2d_opt));   % FF
@@ -156,9 +181,9 @@ cd(currentFolder);
 
 % Test data
 clear mnt_fbC_step_y mnt_fbC_step_t
-[mnt_fbC_step_y(:,1), mnt_fbC_step_t] = step(mount.az.SSdtHfb,0.15);
-[mnt_fbC_step_y(:,2), ~] = step(mount.el.SSdtHfb,mnt_fbC_step_t);
-[mnt_fbC_step_y(:,3), ~] = step(mount.gir.SSdtHfb,mnt_fbC_step_t);
+[mnt_fbC_step_y(:,1), mnt_fbC_step_t] = step(mount.az.SSdtHfb, 0.15);
+[mnt_fbC_step_y(:,2), ~] = step(balreal(c2d(ss(o.el.c.Hp), mnt_TF_Ts, c2d_opt)), mnt_fbC_step_t);
+[mnt_fbC_step_y(:,3), ~] = step(mount.gir.SSdtHfb, mnt_fbC_step_t);
 
 if (update_test_dt || ~exist('mnt_fbC_step_test','var'))
     save mnt_fbC_step_test mnt_fbC_step_y mnt_fbC_step_t
@@ -178,6 +203,6 @@ if auto_compile
 else
     warning("The code for the mount controller and driver were not built!");
     warning("Use slbuild('%s') and "+...
-        "slbuild('%s') to compile the mount models.", mnt_ctrl_name, mnt_drv_name);
+        "slbuild('%s') to compile the mount models.", mnt_ctrl_name, mnt_drv_name); %#ok<SPWRN> 
 end
 

@@ -3,9 +3,9 @@
  *
  * Code generated for Simulink model 'Mount_Control'.
  *
- * Model version                  : 9.53
+ * Model version                  : 9.78
  * Simulink Coder version         : 9.8 (R2022b) 13-May-2022
- * C/C++ source code generated on : Fri Jun  2 13:39:09 2023
+ * C/C++ source code generated on : Wed Sep 25 14:20:47 2024
  *
  * Target selection: ert.tlc
  * Embedded hardware selection: Intel->x86-64 (Linux 64)
@@ -26,9 +26,15 @@
 
 /* Block signals and states (default storage) for system '<Root>' */
 typedef struct {
+  real_T AZFFcontroller_DSTATE[2];     /* '<S1>/AZ FF controller' */
+  real_T ELFFcontroller_DSTATE[2];     /* '<S1>/EL FF controller' */
+  real_T GIRFFcontroller_DSTATE[2];    /* '<S1>/GIR FF controller' */
   real_T AZFBcontroller_DSTATE[7];     /* '<S1>/AZ FB controller' */
-  real_T ELFBcontroller_DSTATE[13];    /* '<S1>/EL FB controller' */
+  real_T ELFBfilter_DSTATE[11];        /* '<S2>/EL FB filter' */
   real_T GIRFBcontroller_DSTATE[7];    /* '<S1>/GIR FB controller' */
+  real_T DiscreteTimeIntegrator_DSTATE;/* '<S2>/Discrete-Time Integrator' */
+  real_T Derivativeterm_states;        /* '<S2>/Derivative term' */
+  boolean_T Memory_PreviousInput;      /* '<S2>/Memory' */
 } DW_Mount_Control_T;
 
 /* Constant parameters (default storage) */
@@ -48,15 +54,15 @@ typedef struct {
    */
   real_T AZFBcontroller_C[7];
 
-  /* Computed Parameter: ELFBcontroller_A
-   * Referenced by: '<S1>/EL FB controller'
+  /* Computed Parameter: ELFBfilter_A
+   * Referenced by: '<S2>/EL FB filter'
    */
-  real_T ELFBcontroller_A[145];
+  real_T ELFBfilter_A[121];
 
-  /* Computed Parameter: ELFBcontroller_C
-   * Referenced by: '<S1>/EL FB controller'
+  /* Computed Parameter: ELFBfilter_C
+   * Referenced by: '<S2>/EL FB filter'
    */
-  real_T ELFBcontroller_C[13];
+  real_T ELFBfilter_C[11];
 
   /* Computed Parameter: GIRFBcontroller_A
    * Referenced by: '<S1>/GIR FB controller'
@@ -115,6 +121,7 @@ extern void Mount_Control_terminate(RT_MODEL_Mount_Control_T *const
  *
  * '<Root>' : 'mount_2_rust'
  * '<S1>'   : 'mount_2_rust/Mount_Control'
+ * '<S2>'   : 'mount_2_rust/Mount_Control/EL FB controller'
  */
 #endif                                 /* RTW_HEADER_Mount_Control_h_ */
 
