@@ -5,6 +5,12 @@
 *.autosave
 # Original Simulink compiled file folders
 m2-ctrl/asm/simulink-models/*_ert_rtw*
+m2-ctrl/fsm/simulink-models/*_ert_rtw*
+m2-ctrl/fsm/simulink-models/slprj
 m1-ctrl/simulink-models/*_ert_rtw*
+m1-ctrl/simulink-models/slprj*
 mount/simulink-models/*_ert_rtw*
+mount/simulink-models/slprj*
 
+# git-old folder
+/.git-old
